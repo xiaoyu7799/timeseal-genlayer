@@ -1,0 +1,24 @@
+{
+  "network": "Stable Studionet",
+  "chainId": 61999,
+  "rpcUrl": "https://studio.genlayer.com/api",
+  "contractAddress": "0xcc4E4bd6ac4f3D6ccec724E9B3EBD73E6Eb4E204",
+  "explorer": "https://explorer-studio.genlayer.com/address/0xcc4E4bd6ac4f3D6ccec724E9B3EBD73E6Eb4E204",
+  "flowAccount": "0xa9C890060173545Ed23b31833CDc259A9B6853fC",
+  "capsuleId": 0,
+  "sealTxHash": "0xe5ca1ed0532945f64398818d46b58d4fe2af71e46497614f1c9bc90ee18c97bd",
+  "unlockTxHash": "0x0c38561998aa9a2e972c61f24422f3d7fed2d81d7be32b7d87d5005da14e8577",
+  "unlockReceiptStatus": "FINALIZED",
+  "record": {
+    "id": 0,
+    "title": "TimeSeal genesis capsule",
+    "note": "Sealed at launch to prove the full seal -> unlock flow on Stable Studionet.",
+    "category": "Prediction",
+    "unlock_date": "2026-10-31",
+    "requester": "0xa9C890060173545Ed23b31833CDc259A9B6853fC",
+    "status": "unlocked",
+    "unlocked_date": "2026-10-31",
+    "unlock_source": "https://timeapi.io/api/time/current/zone?timeZone=UTC"
+  },
+  "checkedAt": "2026-10-31T09:06:05.336Z"
+}

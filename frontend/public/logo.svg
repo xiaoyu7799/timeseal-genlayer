@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E8B44A"/>
+      <stop offset="1" stop-color="#B97F1F"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="56" fill="#0B1026"/>
+  <circle cx="60" cy="60" r="56" fill="none" stroke="url(#g)" stroke-width="5"/>
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#E8B44A" stroke-width="1.5" stroke-dasharray="4 5" opacity="0.7"/>
+  <!-- hourglass -->
+  <g fill="#E8B44A">
+    <rect x="38" y="28" width="44" height="7" rx="3.5"/>
+    <rect x="38" y="85" width="44" height="7" rx="3.5"/>
+    <path d="M42 35 L78 35 L60 60 Z"/>
+    <path d="M42 85 L78 85 L60 60 Z"/>
+    <rect x="58.5" y="58" width="3" height="10" rx="1.5"/>
+    <circle cx="60" cy="74" r="3.5"/>
+  </g>
+  <!-- wax seal drip -->
+  <circle cx="88" cy="92" r="7" fill="#8B7CF6"/>
+  <circle cx="96" cy="84" r="4" fill="#8B7CF6" opacity="0.7"/>
+</svg>

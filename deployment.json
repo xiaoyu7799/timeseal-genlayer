@@ -1,0 +1,14 @@
+{
+  "network": "Stable Studionet",
+  "chainId": 61999,
+  "rpcUrl": "https://studio.genlayer.com/api",
+  "explorer": "https://explorer-studio.genlayer.com/address/0xcc4E4bd6ac4f3D6ccec724E9B3EBD73E6Eb4E204",
+  "studio": "https://studio.genlayer.com/?import-contract=0xcc4E4bd6ac4f3D6ccec724E9B3EBD73E6Eb4E204",
+  "contractAddress": "0xcc4E4bd6ac4f3D6ccec724E9B3EBD73E6Eb4E204",
+  "deployTxHash": "0x983fc2159502ce26b36b9af49cde4c02f90944889324dbbeac486ffb3b8e9720",
+  "deployer": "0x481b85845C9cd8390baAd46B9BAF845D48334973",
+  "contractFile": "contracts/timeseal.py",
+  "contractSha256": "108ab7387d70e73b581ebda1e5d5deebb501a83f460e4112d8171b651f367537",
+  "deployedAt": "2026-10-31T09:04:43.019Z",
+  "receiptStatus": "FINALIZED"
+}
