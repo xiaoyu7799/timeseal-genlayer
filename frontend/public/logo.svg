@@ -1,23 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#E8B44A"/>
-      <stop offset="1" stop-color="#B97F1F"/>
-    </linearGradient>
-  </defs>
-  <circle cx="60" cy="60" r="56" fill="#0B1026"/>
-  <circle cx="60" cy="60" r="56" fill="none" stroke="url(#g)" stroke-width="5"/>
-  <circle cx="60" cy="60" r="44" fill="none" stroke="#E8B44A" stroke-width="1.5" stroke-dasharray="4 5" opacity="0.7"/>
-  <!-- hourglass -->
-  <g fill="#E8B44A">
-    <rect x="38" y="28" width="44" height="7" rx="3.5"/>
-    <rect x="38" y="85" width="44" height="7" rx="3.5"/>
-    <path d="M42 35 L78 35 L60 60 Z"/>
-    <path d="M42 85 L78 85 L60 60 Z"/>
-    <rect x="58.5" y="58" width="3" height="10" rx="1.5"/>
-    <circle cx="60" cy="74" r="3.5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240">
+  <!-- TimeSeal mark: a gold hourglass inside a clock ring, sealed with violet wax. -->
+  <rect width="240" height="240" fill="#0B1026"/>
+  <circle cx="120" cy="120" r="112" fill="none" stroke="#E8B44A" stroke-width="5"/>
+  <circle cx="120" cy="120" r="98" fill="none" stroke="#E8B44A" stroke-width="1.5" opacity="0.6"/>
+  <!-- clock ticks: 12 around the ring, longer at the quarters -->
+  <g stroke="#E8B44A" stroke-width="3" stroke-linecap="round">
+    <line x1="120" y1="12" x2="120" y2="24"/>
+    <line x1="120" y1="12" x2="120" y2="24" transform="rotate(30 120 120)"/>
+    <line x1="120" y1="12" x2="120" y2="24" transform="rotate(60 120 120)"/>
+    <line x1="120" y1="10" x2="120" y2="26" transform="rotate(90 120 120)"/>
+    <line x1="120" y1="12" x2="120" y2="24" transform="rotate(120 120 120)"/>
+    <line x1="120" y1="12" x2="120" y2="24" transform="rotate(150 120 120)"/>
+    <line x1="120" y1="10" x2="120" y2="26" transform="rotate(180 120 120)"/>
+    <line x1="120" y1="12" x2="120" y2="24" transform="rotate(210 120 120)"/>
+    <line x1="120" y1="12" x2="120" y2="24" transform="rotate(240 120 120)"/>
+    <line x1="120" y1="10" x2="120" y2="26" transform="rotate(270 120 120)"/>
+    <line x1="120" y1="12" x2="120" y2="24" transform="rotate(300 120 120)"/>
+    <line x1="120" y1="12" x2="120" y2="24" transform="rotate(330 120 120)"/>
   </g>
-  <!-- wax seal drip -->
-  <circle cx="88" cy="92" r="7" fill="#8B7CF6"/>
-  <circle cx="96" cy="84" r="4" fill="#8B7CF6" opacity="0.7"/>
+  <!-- hourglass -->
+  <g>
+    <rect x="82" y="62" width="76" height="9" rx="4.5" fill="#E8B44A"/>
+    <rect x="82" y="169" width="76" height="9" rx="4.5" fill="#E8B44A"/>
+    <polygon points="88,71 152,71 120,120" fill="#E8B44A"/>
+    <polygon points="88,169 152,169 120,120" fill="#E8B44A"/>
+    <polygon points="96,73 144,73 120,108" fill="#B97F1F"/>
+    <rect x="118.5" y="120" width="3" height="30" fill="#F2C96B"/>
+    <polygon points="104,169 136,169 120,152" fill="#F2C96B"/>
+  </g>
+  <!-- wax seal -->
+  <circle cx="186" cy="186" r="20" fill="#8B7CF6"/>
+  <circle cx="186" cy="186" r="13" fill="none" stroke="#E8B44A" stroke-width="2"/>
+  <circle cx="186" cy="186" r="4" fill="#E8B44A"/>
 </svg>
