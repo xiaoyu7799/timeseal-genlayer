@@ -2,16 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CATEGORIES, CONTRACT_ADDRESS, CHAIN_ID, RPC_URL, connectWalletAddress,
   explorerAddress, explorerTx, parseRecord, readClient, reviewerClient,
-  waitFinal, writeClient, fetchUtcPreview, countdownTo,
+  waitFinal, writeClient, fetchUtcPreview, countdownTo, sha256Hex, generateSalt,
 } from './genlayer.js'
 import { LANGS, STRINGS, categoryLabelFor } from './i18n.js'
 import { createTimeEngine } from './sound.js'
 
 function tomorrowISO() {
   return new Date(Date.now() + 86400000).toISOString().slice(0, 10)
-}
-function todayISO() {
-  return new Date().toISOString().slice(0, 10)
 }
 
 function Field({ label, children }) {
@@ -93,36 +90,86 @@ function shortSource(url) {
   return url
 }
 
-function CapsuleCard({ c, t, lang, nowMs, canWrite, unlocking, onUnlock }) {
-  const locked = c.status === 'locked'
-  const cd = locked ? countdownTo(c.unlock_date, nowMs) : null
+function truncHash(h) {
+  if (!h) return '—'
+  return `${h.slice(0, 10)}…${h.slice(-8)}`
+}
+
+// One vault card. Sealed cards show the public question + the truncated
+// commitment (never the prediction — the chain does not have it), plus
+// the reveal form and a browser-only local hash check. Revealed cards
+// show the published prediction, reveal date and source.
+function CapsuleCard({ c, t, lang, nowMs, canWrite, revealing, onReveal }) {
+  const sealed = c.status === 'sealed'
+  const cd = sealed ? countdownTo(c.unlock_date, nowMs) : null
+  const [revPred, setRevPred] = useState('')
+  const [revKey, setRevKey] = useState('')
+  const [locPred, setLocPred] = useState('')
+  const [locKey, setLocKey] = useState('')
+  const [locResult, setLocResult] = useState(null)
+  const [locBusy, setLocBusy] = useState(false)
+
+  async function doLocalCheck() {
+    if (!locPred || !locKey) return
+    setLocBusy(true)
+    try {
+      const hash = await sha256Hex(locKey + '\n' + locPred)
+      setLocResult(hash === c.commitment ? 'match' : 'mismatch')
+    } catch { setLocResult('mismatch') }
+    finally { setLocBusy(false) }
+  }
+
   return (
-    <article className={`cap tilt ${locked ? 'cap-locked' : 'cap-unlocked'}`}>
+    <article className={`cap tilt ${sealed ? 'cap-locked' : 'cap-unlocked'}`}>
       <div className="cap-top">
         <div>
-          <div className="cap-title">{c.title}</div>
-          <div className="cap-meta">#{c.id} · {categoryLabelFor(lang, c.category)} · {locked ? `${t.featuredLocked} ${c.unlock_date}` : `${t.featuredUnlocked} ${c.unlocked_date || ''}`}</div>
+          <div className="cap-title">{c.question}</div>
+          <div className="cap-meta">#{c.id} · {categoryLabelFor(lang, c.category)} · {sealed ? `${t.featuredLocked} ${c.unlock_date}` : `${t.featuredUnlocked} ${c.revealed_date || ''}`}</div>
         </div>
-        <span className={`badge ${locked ? 'badge-locked' : 'badge-unlocked'}`}>{locked ? t.locked : t.unlocked}</span>
+        <span className={`badge ${sealed ? 'badge-locked' : 'badge-unlocked'}`}>{sealed ? t.locked : t.unlocked}</span>
       </div>
-      <p className="cap-note">{c.note}</p>
-      {locked && cd && (
-        <div className="countdown">
-          <div><b>{cd.days}</b><span>{t.cdDays}</span></div>
-          <div><b>{String(cd.hours).padStart(2, '0')}</b><span>{t.cdHours}</span></div>
-          <div><b>{String(cd.mins).padStart(2, '0')}</b><span>{t.cdMins}</span></div>
-          <div><b>{String(cd.secs).padStart(2, '0')}</b><span>{t.cdSecs}</span></div>
-        </div>
+      {sealed && (
+        <>
+          <p className="cap-note"><span className="muted small">{t.commitmentShort}: </span><span className="mono">{truncHash(c.commitment)}</span></p>
+          {cd && (
+            <div className="countdown">
+              <div><b>{cd.days}</b><span>{t.cdDays}</span></div>
+              <div><b>{String(cd.hours).padStart(2, '0')}</b><span>{t.cdHours}</span></div>
+              <div><b>{String(cd.mins).padStart(2, '0')}</b><span>{t.cdMins}</span></div>
+              <div><b>{String(cd.secs).padStart(2, '0')}</b><span>{t.cdSecs}</span></div>
+            </div>
+          )}
+          {!cd && <p className="ready">{t.revealReady}</p>}
+          <div className="reveal-form">
+            <p className="muted small">{t.revealFormHint}</p>
+            <Field label={t.fieldRevealPrediction}><input value={revPred} onChange={e => setRevPred(e.target.value)} maxLength={500} placeholder="…" /></Field>
+            <Field label={t.fieldRevealKey}><input value={revKey} onChange={e => setRevKey(e.target.value)} maxLength={64} placeholder="…" /></Field>
+            <div className="actions">
+              <button className="btn small gold" disabled={!canWrite || revealing || revPred.length < 2 || !revKey} onClick={() => onReveal(c.id, revPred, revKey)}>
+                {revealing ? t.revealing : t.revealBtn}
+              </button>
+            </div>
+            <details className="local-check">
+              <summary>{t.localCheckTitle}</summary>
+              <p className="muted small">{t.localCheckHint}</p>
+              <Field label={t.fieldRevealPrediction}><input value={locPred} onChange={e => setLocPred(e.target.value)} maxLength={500} placeholder="…" /></Field>
+              <Field label={t.fieldRevealKey}><input value={locKey} onChange={e => setLocKey(e.target.value)} maxLength={64} placeholder="…" /></Field>
+              <button className="btn small ghost" disabled={locBusy || !locPred || !locKey} onClick={doLocalCheck}>{locBusy ? t.loading : t.localCheckBtn}</button>
+              {locResult === 'match' && <p className="status">{locResult && t.localCheckMatch}</p>}
+              {locResult === 'mismatch' && <p className="error">{t.localCheckMismatch}</p>}
+              <p className="muted small">{t.localCheckNote}</p>
+            </details>
+          </div>
+        </>
       )}
-      {locked && !cd && <p className="ready">{t.unlockReady}</p>}
-      {!locked && c.unlock_source && <p className="muted small">{t.sourceLabel}: {shortSource(c.unlock_source)}</p>}
+      {!sealed && (
+        <>
+          <p className="cap-note"><b>{t.revealedPredictionLabel}: </b>{c.revealed_prediction}</p>
+          <p className="muted small">{t.revealedDateLabel} {c.revealed_date} · {t.sourceLabel}: {shortSource(c.source)}</p>
+        </>
+      )}
       <div className="cap-foot">
         <span className="mono">by {c.requester?.slice(0, 6)}…{c.requester?.slice(-4)}</span>
-        {locked && canWrite && (
-          <button className="btn small gold" disabled={unlocking} onClick={() => onUnlock(c.id)}>
-            {unlocking ? t.unlocking : t.unlockBtn}
-          </button>
-        )}
       </div>
     </article>
   )
@@ -148,8 +195,14 @@ export default function App() {
   })
   const [introLeaving, setIntroLeaving] = useState(false)
 
-  const [title, setTitle] = useState('')
-  const [note, setNote] = useState('')
+  // Commit form state. The prediction and salt live only in this
+  // browser; only the computed commitment is ever sent on-chain.
+  const [question, setQuestion] = useState('')
+  const [prediction, setPrediction] = useState('')
+  const [showPrediction, setShowPrediction] = useState(false)
+  const [salt, setSalt] = useState('')
+  const [commitment, setCommitment] = useState('')
+  const [copiedKey, setCopiedKey] = useState(false)
   const [category, setCategory] = useState(CATEGORIES[0])
   const [unlockDate, setUnlockDate] = useState(tomorrowISO())
   const [wallet, setWallet] = useState(null)
@@ -164,7 +217,7 @@ export default function App() {
   const [utcBusy, setUtcBusy] = useState(false)
   const [capsules, setCapsules] = useState([])
   const [listBusy, setListBusy] = useState(false)
-  const [unlockingId, setUnlockingId] = useState(null)
+  const [revealingId, setRevealingId] = useState(null)
   const [createdId, setCreatedId] = useState(null)
   const [filter, setFilter] = useState('all')
   const [nowMs, setNowMs] = useState(Date.now())
@@ -211,6 +264,16 @@ export default function App() {
     if (soundOn) { soundRef.current.stop(); setSoundOn(false) }
     else if (soundRef.current.start()) setSoundOn(true)
   }
+
+  // Recompute the commitment whenever the secret inputs change.
+  useEffect(() => {
+    if (prediction.length >= 2 && salt) {
+      let live = true
+      sha256Hex(salt + '\n' + prediction).then(h => { if (live) setCommitment(h) }).catch(() => {})
+      return () => { live = false }
+    }
+    setCommitment('')
+  }, [prediction, salt])
 
   // Mouse playfulness (fine pointers only): cursor glow, hero parallax,
   // card/panel tilt, magnetic hero CTAs. Everything resets on leave.
@@ -313,46 +376,63 @@ export default function App() {
     setStatus('Reviewer test account ready. Writes will be signed by this ephemeral Studionet account, not by your wallet.')
   }
 
+  function doGenerateSalt() {
+    setSalt(generateSalt(16)); setCopiedKey(false)
+  }
+
+  async function doCopyKey() {
+    try {
+      await navigator.clipboard.writeText(salt)
+      setCopiedKey(true)
+      setTimeout(() => setCopiedKey(false), 2500)
+    } catch { /* clipboard unavailable: the key is still visible above */ }
+  }
+
   async function doSeal() {
     if (!wallet || !client) { setError('Connect a wallet first.'); return }
-    if (title.trim().length < 2 || note.trim().length < 2) { setError('Give the capsule a title and a note first.'); return }
+    if (question.trim().length < 2 || question.trim().length > 120) { setError('Give the capsule a public question (2–120 chars) first.'); return }
+    if (prediction.length < 2 || prediction.length > 500) { setError('Write a secret prediction (2–500 chars) first.'); return }
+    if (!salt) { setError('Generate a reveal key first.'); return }
+    if (!commitment || commitment.length !== 64) { setError('Commitment is not computed yet — wait a moment and try again.'); return }
     setError(''); setTx(null); setStatus('Submitting seal…')
     try {
-      const hash = await client.writeContract({ address: CONTRACT_ADDRESS, functionName: 'seal_capsule', args: [title.trim(), note.trim(), category, unlockDate], value: 0n, leaderOnly: false })
+      // Only question, commitment, category, unlock date go on-chain.
+      // The prediction and salt are deliberately NOT arguments here.
+      const hash = await client.writeContract({ address: CONTRACT_ADDRESS, functionName: 'seal_capsule', args: [question.trim(), commitment, category, unlockDate], value: 0n, leaderOnly: false })
       setTx({ kind: 'Seal', hash }); setStatus('Seal submitted — waiting for GenLayer finalization…')
       await waitFinal(readClient(), hash, (s) => setStatus(s === 'finalized' ? 'Seal finalized.' : 'Seal submitted — waiting for GenLayer finalization…'))
       const countRaw = await readClient().readContract({ address: CONTRACT_ADDRESS, functionName: 'get_count', args: [] })
       const id = Number(countRaw) - 1
-      setCreatedId(id); setStatus(`Seal finalized as capsule #${id}. It unlocks on ${unlockDate} (UTC), once validators confirm the date.`)
+      setCreatedId(id); setStatus(`Seal finalized as capsule #${id}. ${t.sealReminder}`)
       await loadCapsules()
     } catch (e) { setError('Seal failed: ' + (e?.message || e)); setStatus('') }
   }
 
-  async function doUnlock(id) {
+  async function doReveal(id, revPrediction, revSalt) {
     if (!wallet || !client) { setError('Connect a wallet first.'); return }
-    setError(''); setUnlockingId(id); setTx(null); setStatus(`Unlocking #${id} — validators are independently checking the UTC date…`)
+    setError(''); setRevealingId(id); setTx(null); setStatus(`Revealing #${id} — validators are independently checking the UTC date and the contract is re-checking the hash…`)
     try {
-      const hash = await client.writeContract({ address: CONTRACT_ADDRESS, functionName: 'unlock_capsule', args: [BigInt(id)], value: 0n, leaderOnly: false })
-      setTx({ kind: 'Unlock', hash }); setStatus('Unlock submitted — waiting for validator consensus and finalization…')
-      await waitFinal(readClient(), hash, (s) => setStatus(s === 'finalized' ? `Capsule #${id} finalized.` : 'Unlock submitted — waiting for validator consensus…'))
+      const hash = await client.writeContract({ address: CONTRACT_ADDRESS, functionName: 'reveal_capsule', args: [BigInt(id), revPrediction, revSalt], value: 0n, leaderOnly: false })
+      setTx({ kind: 'Reveal', hash }); setStatus('Reveal submitted — waiting for validator consensus and finalization…')
+      await waitFinal(readClient(), hash, (s) => setStatus(s === 'finalized' ? `Capsule #${id} revealed and finalized.` : 'Reveal submitted — waiting for validator consensus…'))
       await loadCapsules()
-    } catch (e) { setError('Unlock failed (the capsule stays locked and can be retried — most often this means its unlock date has not arrived yet): ' + (e?.message || e)); setStatus('') }
-    finally { setUnlockingId(null) }
+    } catch (e) { setError('Reveal failed (the capsule stays sealed and can be retried — most often this means its reveal date has not arrived yet, or the prediction/key do not match the commitment): ' + (e?.message || e)); setStatus('') }
+    finally { setRevealingId(null) }
   }
 
-  const locked = capsules.filter(c => c.status === 'locked')
-  const unlocked = capsules.filter(c => c.status === 'unlocked')
-  const featured = [...locked].sort((a, b) => a.unlock_date.localeCompare(b.unlock_date))[0] || capsules[0]
-  const featuredCd = featured && featured.status === 'locked' ? countdownTo(featured.unlock_date, nowMs) : null
+  const sealed = capsules.filter(c => c.status === 'sealed')
+  const revealed = capsules.filter(c => c.status === 'revealed')
+  const featured = [...sealed].sort((a, b) => a.unlock_date.localeCompare(b.unlock_date))[0] || capsules[0]
+  const featuredCd = featured && featured.status === 'sealed' ? countdownTo(featured.unlock_date, nowMs) : null
   const visible = capsules.filter(c => filter === 'all' || c.status === filter)
-  const statusBusy = /waiting|submitting|unlocking/i.test(status)
+  const statusBusy = /waiting|submitting|revealing/i.test(status)
   const clockMs = utcClock ? utcClock.utcMs + (nowMs - utcClock.fetchedAtMs) : nowMs
   const clockText = new Date(clockMs).toISOString().slice(11, 19)
   const clockDate = new Date(clockMs).toISOString().slice(0, 10)
   const tickerItems = [
     `UTC ${clockText}`,
-    ...capsules.slice(0, 6).map(c => `#${c.id} ${c.title} → ${c.status === 'locked' ? c.unlock_date : 'unlocked'}`),
-    'TimeSeal · sealed on Stable Studionet',
+    ...capsules.slice(0, 6).map(c => `#${c.id} ${c.question} → ${c.status === 'sealed' ? c.unlock_date : 'revealed'}`),
+    'TimeSeal v2 · hidden commitments, revealed by consensus',
   ]
   const ticker = [...tickerItems, ...tickerItems].join('  ✦  ')
 
@@ -408,9 +488,9 @@ export default function App() {
           <div className="river-divider" />
           {featured ? (
             <>
-              <div className="eyebrow">{featured.status === 'locked' ? t.nextUnlock : t.featuredUnlocked}</div>
-              <div className="river-place">{featured.title}</div>
-              <div className="river-meta">{categoryLabelFor(lang, featured.category)} · #{featured.id} · {featured.status === 'locked' ? `${t.featuredLocked} ${featured.unlock_date}` : `${t.featuredUnlocked} ${featured.unlocked_date || ''}`}</div>
+              <div className="eyebrow">{featured.status === 'sealed' ? t.nextUnlock : t.featuredUnlocked}</div>
+              <div className="river-place">{featured.question}</div>
+              <div className="river-meta">{categoryLabelFor(lang, featured.category)} · #{featured.id} · {featured.status === 'sealed' ? `${t.featuredLocked} ${featured.unlock_date}` : `${t.featuredUnlocked} ${featured.revealed_date || ''}`}</div>
               {featuredCd && (
                 <div className="countdown">
                   <div><b>{featuredCd.days}</b><span>{t.cdDays}</span></div>
@@ -429,8 +509,8 @@ export default function App() {
       <Reveal>
         <section className="stats" aria-label="Live stats">
           <div className="stat"><b>{capsules.length}</b><span>{t.statTotal}</span></div>
-          <div className="stat"><b>{locked.length}</b><span>{t.statLocked}</span></div>
-          <div className="stat"><b>{unlocked.length}</b><span>{t.statUnlocked}</span></div>
+          <div className="stat"><b>{sealed.length}</b><span>{t.statLocked}</span></div>
+          <div className="stat"><b>{revealed.length}</b><span>{t.statUnlocked}</span></div>
           <div className="stat"><b>{clockDate}</b><span>{t.statUtcToday}</span></div>
         </section>
       </Reveal>
@@ -448,15 +528,37 @@ export default function App() {
           <section className="panel tilt" id="seal">
             <h2>{t.sealTitle}</h2>
             <p className="panel-sub">{t.sealSub}</p>
-            <p className="public-note">⚠ {t.publicNote}</p>
+            <p className="public-note">⚠ {t.hiddenNote}</p>
             <div className="chips">
               {CATEGORIES.map(c => <button key={c} className={category === c ? 'chip active' : 'chip'} onClick={() => setCategory(c)}>{categoryLabelFor(lang, c)}</button>)}
             </div>
-            <Field label={t.fieldTitle}><input value={title} onChange={e => setTitle(e.target.value)} maxLength={80} placeholder="e.g. I predict the final score" /></Field>
-            <Field label={t.fieldNote}><textarea value={note} onChange={e => setNote(e.target.value)} maxLength={500} rows={3} placeholder="Write the commitment exactly as you want it proven…" /></Field>
+            <Field label={t.fieldQuestion}><input value={question} onChange={e => setQuestion(e.target.value)} maxLength={120} placeholder="e.g. What will the final score be?" /></Field>
+            <Field label={t.fieldPrediction}>
+              <div className="input-row">
+                <input type={showPrediction ? 'text' : 'password'} value={prediction} onChange={e => setPrediction(e.target.value)} maxLength={500} placeholder="Your secret prediction — never sent until reveal…" />
+                <button type="button" className="btn small ghost" onClick={() => setShowPrediction(!showPrediction)}>{showPrediction ? t.hidePrediction : t.showPrediction}</button>
+              </div>
+            </Field>
+            <Field label={t.fieldRevealKey}>
+              <div className="input-row">
+                <input value={salt} onChange={e => { setSalt(e.target.value); setCopiedKey(false) }} maxLength={64} placeholder="…" />
+                <button type="button" className="btn small gold" onClick={doGenerateSalt}>{t.btnGenerateKey}</button>
+                {salt && <button type="button" className="btn small ghost" onClick={doCopyKey}>{copiedKey ? t.keyCopied : t.copyKey}</button>}
+              </div>
+            </Field>
+            {salt && <p className="public-note">⚠ {t.keyWarning}</p>}
+            {commitment ? (
+              <div className="preview">
+                <span className="preview-tag">{t.commitmentLabel}</span>
+                <div className="utc-line mono" style={{ fontSize: 15, wordBreak: 'break-all' }}>{commitment}</div>
+                <div className="muted small">{t.commitmentNote}</div>
+              </div>
+            ) : (
+              <p className="muted small">{t.commitmentPending}</p>
+            )}
             <Field label={t.fieldUnlockDate}><input type="date" value={unlockDate} min={minDate} max="2100-12-31" onChange={e => setUnlockDate(e.target.value)} /></Field>
             <div className="actions">
-              <button className="btn gold big" onClick={doSeal} disabled={!configured || !wallet}>{t.btnSeal}</button>
+              <button className="btn gold big" onClick={doSeal} disabled={!configured || !wallet || !commitment}>{t.btnSeal}</button>
               <button className="btn ghost" onClick={doCheckTime} disabled={utcBusy}>{utcBusy ? t.loading : t.btnCheckTime}</button>
             </div>
             {!wallet && <p className="muted">{t.needWallet}<b>{t.needWalletEm}</b>{t.needWalletEnd}</p>}
@@ -478,7 +580,7 @@ export default function App() {
             )}
             {walletMode === 'ephemeral' && ephemeralAddress && <p className="muted small">Writing as ephemeral test account {ephemeralAddress} (Studionet only, browser-only key, discarded on refresh) — not as your wallet {wallet}.</p>}
             {tx && <p className="txline">{tx.kind} tx: <a href={explorerTx(tx.hash)} target="_blank" rel="noreferrer" className="mono">{tx.hash.slice(0, 18)}… ↗</a></p>}
-            {createdId !== null && <p className="status">Next step: wait for {unlockDate}, then <button className="linkbtn" onClick={() => doUnlock(createdId)}>unlock capsule #{createdId} on-chain</button></p>}
+            {createdId !== null && <p className="status">⚠ {t.sealReminder} <span className="mono">{salt}</span></p>}
           </section>
         </Reveal>
 
@@ -488,14 +590,14 @@ export default function App() {
             <p className="panel-sub">{t.vaultSub}</p>
             <div className="chips">
               <button className={filter === 'all' ? 'chip active' : 'chip'} onClick={() => setFilter('all')}>{t.filterAll}</button>
-              <button className={filter === 'locked' ? 'chip active' : 'chip'} onClick={() => setFilter('locked')}>{t.filterLocked}</button>
-              <button className={filter === 'unlocked' ? 'chip active' : 'chip'} onClick={() => setFilter('unlocked')}>{t.filterUnlocked}</button>
+              <button className={filter === 'sealed' ? 'chip active' : 'chip'} onClick={() => setFilter('sealed')}>{t.filterLocked}</button>
+              <button className={filter === 'revealed' ? 'chip active' : 'chip'} onClick={() => setFilter('revealed')}>{t.filterUnlocked}</button>
             </div>
             {!configured && <p className="muted">No contract configured in this build.</p>}
             {configured && capsules.length === 0 && !listBusy && <p className="muted">{t.noCapsules}</p>}
             <div className="timeline">
               <div className="river-line" />
-              {visible.map((c, i) => <Reveal key={c.id} delay={i * 70}><CapsuleCard c={c} t={t} lang={lang} nowMs={nowMs} canWrite={Boolean(wallet)} unlocking={unlockingId === c.id} onUnlock={doUnlock} /></Reveal>)}
+              {visible.map((c, i) => <Reveal key={c.id} delay={i * 70}><CapsuleCard c={c} t={t} lang={lang} nowMs={nowMs} canWrite={Boolean(wallet)} revealing={revealingId === c.id} onReveal={doReveal} /></Reveal>)}
             </div>
             <p className="muted small">Network: Stable Studionet ({CHAIN_ID}), RPC {RPC_URL}. Contract: {configured ? <a href={explorerAddress(CONTRACT_ADDRESS)} target="_blank" rel="noreferrer" className="mono">{CONTRACT_ADDRESS.slice(0, 10)}… ↗</a> : 'not configured'}.</p>
           </section>
@@ -513,6 +615,7 @@ export default function App() {
             <li><span>{t.tolDate}</span><b>{t.tolDateVal}</b></li>
             <li><span>{t.tolSource}</span><b>{t.tolSourceVal}</b></li>
             <li><span>{t.tolGate}</span><b>{t.tolGateVal}</b></li>
+            <li><span>{t.tolHash}</span><b>{t.tolHashVal}</b></li>
           </ul>
         </section>
       </Reveal>

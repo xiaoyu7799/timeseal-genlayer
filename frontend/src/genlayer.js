@@ -86,6 +86,23 @@ export function parseRecord(raw) {
 
 export const CATEGORIES = ['Prediction', 'Birthday message', 'Goal', 'Milestone', 'Sports', 'Other']
 
+// Commit-reveal helpers. The commitment is SHA-256(salt + "\n" +
+// prediction), computed here in the browser with WebCrypto. The
+// prediction and the salt NEVER leave the browser at seal time — only
+// the resulting 64-hex hash is sent to the contract, which recomputes
+// the same hash in-contract (pure-Python SHA-256) at reveal time.
+export async function sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+const SALT_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789'
+export function generateSalt(length = 16) {
+  const bytes = new Uint8Array(length)
+  crypto.getRandomValues(bytes)
+  return [...bytes].map(b => SALT_CHARS[b % SALT_CHARS.length]).join('')
+}
+
 // The same two public, keyless UTC time sources the contract tries, in
 // the same order. The browser preview uses them too, so what you see
 // before sealing is the same kind of source GenLayer will check.

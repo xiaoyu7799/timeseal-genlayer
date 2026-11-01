@@ -211,3 +211,12 @@ footer{margin-top:24px;color:var(--muted);font-size:13px;text-align:center;line-
   .cursor-glow{display:none}
   .river-card,.hero h1,.tilt,.magnetic{transform:none;transition:none}
 }
+
+/* v2 commit-reveal additions (same midnight+gold+violet identity) */
+.input-row{display:flex;gap:8px;align-items:stretch}
+.input-row input{flex:1;min-width:0}
+.input-row .btn{white-space:nowrap}
+.reveal-form{border-top:1px solid var(--line);margin-top:14px;padding-top:14px}
+.local-check{margin-top:14px}
+.local-check summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--gold)}
+.local-check .field{margin-top:12px}
